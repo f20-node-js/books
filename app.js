@@ -1,107 +1,57 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const express = require('express');
+const bp = require('body-parser');
+const file = require('./helpers/file.js');
 
+const app = express();
+app.listen(3000);
 
-function readData() {
-    const rawData = fs.readFileSync('data.json')
-    const data = JSON.parse(rawData);
-    const massiv = data.books; // massiv;
-    return massiv;
-};
+app.use(bp.json());
+app.use(bp.urlencoded({ extended: true }));
 
-function upDateJson(massiv) {
-    let newData = {
-        books: massiv
-    }
+app.use(express.static(__dirname + '/public'));
 
-    newData = JSON.stringify(newData);
-    fs.writeFileSync('data.json', newData);
-};
+console.log('\nServer running at http://127.0.0.1:3000/\n');
 
-const server = http.createServer((request, response) => {
-    if (request.method == 'GET') {
-        if (request.url == '/') {
-            const indexFile = fs.readFileSync(__dirname + '/public/index.html');
-            response.write(indexFile);
-            response.end();
-        } else if (request.url == '/books') {
-            let books = fs.readFileSync('data.json');
-            books = JSON.parse(books);
-            books = JSON.stringify(books);
-            response.end(books);
-        }
-    } else if (request.method == 'POST') {
-        if (request.url == '/books') {
-            let body = '';
+app.get('/books', (req, res) => {
+    const books = file.GetData();
 
-            request.on('data', chunk => {
-                body += chunk;
-            });
+    res.json(books);
+    res.end();
+});
 
-            request.on('end', () => {
-                let newBook = JSON.parse(body);
-                let massiv = readData();
+app.post('/books', (req, res) => {
+    let books =  file.GetData();
+    let newBook = req.body;
+    newBook.id = books.length;
 
-                massiv.push(newBook);
-                for (let i = 0; i < massiv.length; i++) {
-                    massiv[i].id = i;
-                }
+    books.push(newBook);
+    file.UpdateJson(books);
+    res.end();
+});
 
-                upDateJson(massiv);
+app.put('/books', (req, res)=>{
+    let books =  file.GetData();
+    const changedBook = req.body;
+    const id = changedBook.id;
+    books[id] = changedBook;
 
-                response.end();
-                console.log('Book added')
-            });
-        } else if (request.url == '/getbook'){
-            let body = '';
+    file.UpdateJson(books);
+    res.end();
+});
 
-            request.on('data', chunk => {
-                body += chunk;
-            });
+app.delete('/books', (req, res)=>{
+    let books =  file.GetData();
+    const deleteBook = req.body;
+    const dId = deleteBook.id;
 
-            request.on('end', () => {
-                let data = JSON.parse(body);
-                let id = data.id;
-        
-                const massiv = readData();
+    books.splice(dId, 1);
 
-                let book = {
-                    name: massiv[id].name,
-                    autor: massiv[id].autor
-                };
-                book = JSON.stringify(book);
-
-                response.write(book);
-                response.end();
-                
-            });
-        }
-    } else if (request.method == 'PUT') {
-        if (request.url == '/books') {
-            let body = '';
-
-            request.on('data', chunk => {
-                body += chunk;
-            });
-
-            request.on('end', () => {
-                let upDatedBook = JSON.parse(body);
-                let id = upDatedBook.id;
-
-                let massiv = readData();
-
-                massiv[id].name = upDatedBook.name;
-                massiv[id].autor = upDatedBook.autor;
-
-                upDateJson(massiv);
-
-                response.end();
-
-            });
-        }
+    for(let i = 0; i < books.length; i++){
+        books[i].id = i;
     };
-}
-).listen(3000);
 
-console.log('\nServer running at localhost:3000 ...\n');
+    file.UpdateJson(books);
+    res.end();
+});
+
+
